@@ -1,6 +1,7 @@
-function $(id) {
-  return document.getElementById(id);
-}
+
+const fs = require('fs')
+const window = require('svgdom')
+const SVG = require('svg.js')(window)
 
 function ToCommand(letter) {
   switch (letter) {
@@ -54,12 +55,12 @@ function RoundToHundredths(x) {
 
 function HandleNode(svgNode, scaleX, scaleY, translateX, translateY) {
   var output = '';
-  for (var idx = 0; idx < svgNode.children.length; ++idx) {
-    var svgElement = svgNode.children[idx];
-    switch (svgElement.tagName) {
+
+  for (let svgElement of svgNode.children()) {
+    switch (svgElement.type) {
       // g ---------------------------------------------------------------------
       case 'g':
-        if (svgElement.getAttribute('transform')) {
+        if (svgElement.attr('transform')) {
           output += "<g> with a transform not handled\n";
           break;
         }
@@ -70,11 +71,11 @@ function HandleNode(svgNode, scaleX, scaleY, translateX, translateY) {
       case 'path':
         // If fill is none, this is probably one of those worthless paths
         // of the form <path fill="none" d="M0 0h24v24H0z"/>
-        if (svgElement.getAttribute('fill') == 'none')
+        if (svgElement.attr('fill') == 'none')
           break;
 
         var commands = [];
-        var path = svgElement.getAttribute('d').replace(/,/g, ' ').trim();
+        var path = svgElement.attr('d').replace(/,/g, ' ').trim();
         if (path.slice(-1).toLowerCase() !== 'z')
           path += 'z';
         while (path) {
@@ -161,31 +162,31 @@ function HandleNode(svgNode, scaleX, scaleY, translateX, translateY) {
 
       // CIRCLE ----------------------------------------------------------------
       case 'circle':
-        var cx = parseFloat(svgElement.getAttribute('cx'));
+        var cx = parseFloat(svgElement.attr('cx'));
         cx *= scaleX;
         cx += translateX;
-        var cy = parseFloat(svgElement.getAttribute('cy'));
+        var cy = parseFloat(svgElement.attr('cy'));
         cy *= scaleY;
         cy += translateY;
-        var rad = parseFloat(svgElement.getAttribute('r'));
+        var rad = parseFloat(svgElement.attr('r'));
         output += 'CIRCLE, ' + cx + ', ' + cy + ', ' + rad + ',\n';
         break;
 
       // RECT ------------------------------------------------------------------
       case 'rect':
-        var x = parseFloat(svgElement.getAttribute('x')) || 0;
+        var x = parseFloat(svgElement.attr('x')) || 0;
         x *= scaleX;
         x += translateX;
-        var y = parseFloat(svgElement.getAttribute('y')) || 0;
+        var y = parseFloat(svgElement.attr('y')) || 0;
         y *= scaleY;
         y += translateY;
-        var width = parseFloat(svgElement.getAttribute('width'));
-        var height = parseFloat(svgElement.getAttribute('height'));
+        var width = parseFloat(svgElement.attr('width'));
+        var height = parseFloat(svgElement.attr('height'));
 
         output += 'ROUND_RECT, ' + x + ', ' + y + ', ' + width + ', ' + height +
             ', ';
 
-        var round = svgElement.getAttribute('rx');
+        var round = svgElement.attr('rx');
         if (!round)
           round = '0';
         output += round + ',\n';
@@ -195,37 +196,35 @@ function HandleNode(svgNode, scaleX, scaleY, translateX, translateY) {
   return output;
 }
 
-function ConvertInput() {
-  var translateX = parseFloat($('transform-x').value);
-  var translateY = parseFloat($('transform-y').value);
-  if (isNaN(translateX))
-    translateX = 0;
-  if (isNaN(translateY))
-    translateY = 0;
+function ConvertInput(svgString) {
+  var translateX = 0;
+  var translateY = 0;
+  var scaleX = 1; // $('flip-x').checked ? -1 : 1;
+  var scaleY = 1;
 
-  var scaleX = $('flip-x').checked ? -1 : 1;
-  var scaleY = $('flip-y').checked ? -1 : 1;
+  const document = window.document;
+  const canvas = SVG(document.documentElement);
 
-  var input = $('user-input').value;
-  $('svg-anchor').innerHTML = input;
-  var output = '';
-  var svgNode = $('svg-anchor').querySelector('svg');
-  var canvasSize = svgNode.viewBox.baseVal.width;
-  if (canvasSize == 0)
-    canvasSize = svgNode.width.baseVal.value;
-  if (canvasSize != 48)
-    output += 'CANVAS_DIMENSIONS, ' + canvasSize + ',\n';
+  // Weird artifact of this JS SVG DOM, creates fake SVGs so we have to take the 2nd child to get the one created by |svgString|.
+  let svgNode = canvas.svg(svgString).children()[2];
 
+  let output = '';
+  output += 'CANVAS_DIMENSIONS, ' + svgNode.viewbox().width + ',\n';
   output += HandleNode(svgNode, scaleX, scaleY, translateX, translateY);
+
   // Truncate final comma and newline.
-  $('output-span').textContent = output.slice(0, -2);
+  output = output.slice(0, -2);
+
+  return output;
 }
 
-function init() {
-  $('go-button').addEventListener('click', ConvertInput);
+const svgFilePath = process.argv[2];
+fs.readFile(svgFilePath, 'utf8', (err, data) => {
+  const skia = ConvertInput(data);
 
-  if (navigator.userAgent.indexOf("WebKit") >= 0)
-    $('use-webkit').hidden = true;
-}
+  console.log(skia)
+});
 
-window.onload = init;
+// TODO: validate file passed in is a good svg
+// TODO: bring work for fill preservation
+// TODO: more args for colour from fill, translate + scale, error handling, etc.

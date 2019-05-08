@@ -220,9 +220,20 @@ function ConvertInput(svgString) {
 
 const svgFilePath = process.argv[2];
 fs.readFile(svgFilePath, 'utf8', (err, data) => {
-  const skia = ConvertInput(data);
+  if (err) {
+    return console.log(err);
+  }
 
-  console.log(skia)
+  const skia = ConvertInput(data);
+  const iconFilePath = svgFilePath.replace(".svg", ".icon");
+
+  fs.writeFile(iconFilePath, skia, function(err) {
+    if (err) {
+      return console.log(err);
+    }
+    
+    console.log("saved .icon file to: " + iconFilePath);
+  }); 
 });
 
 // TODO: validate file passed in is a good svg

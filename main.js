@@ -56,6 +56,8 @@ function RoundToHundredths(x) {
 function HandleNode(svgNode, scaleX, scaleY, translateX, translateY) {
   var output = '';
 
+  // TODO: bring work over for fill preservation
+
   for (let svgElement of svgNode.children()) {
     switch (svgElement.type) {
       // g ---------------------------------------------------------------------
@@ -224,6 +226,7 @@ fs.readFile(svgFilePath, 'utf8', (err, data) => {
     return console.log(err);
   }
 
+  // TODO: check the data passed in is .svg filetype and actually .svg data
   const skia = ConvertInput(data);
   const iconFilePath = svgFilePath.replace(".svg", ".icon");
 
@@ -235,7 +238,3 @@ fs.readFile(svgFilePath, 'utf8', (err, data) => {
     console.log("saved .icon file to: " + iconFilePath);
   }); 
 });
-
-// TODO: validate file passed in is a good svg
-// TODO: bring work for fill preservation
-// TODO: more args for colour from fill, translate + scale, error handling, etc.

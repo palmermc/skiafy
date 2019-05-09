@@ -53,12 +53,35 @@ function RoundToHundredths(x) {
   return Math.floor(x * 100 + 0.5) / 100;
 }
 
+function PathColorFromFill(fillString) {
+  if(fillString.length === 4) {
+    // Color in form of #RGB so let's turn that to #RRGGBB.
+    fillString = `#${fillString[1]}${fillString[1]}${fillString[2]}${fillString[2]}${fillString[3]}${fillString[3]}`.toUpperCase();
+  }
+
+  const r = fillString.substr(1,2);
+  const g = fillString.substr(3,2);
+  const b = fillString.substr(5,2);
+
+  return `PATH_COLOR_ARGB, 0xFF, 0x${r}, 0x${g}, 0x${b},\n`;
+}
+
 function HandleNode(svgNode, scaleX, scaleY, translateX, translateY) {
   var output = '';
 
-  // TODO: bring work over for fill preservation
-
   for (let svgElement of svgNode.children()) {
+    output += "NEW_PATH,\n";
+
+    const fill = svgElement.attr('fill');
+    if(fill && fill !== 'none') {
+      // Colors in form #FFF or #FFFFFF.
+      const hexColorRegExp = /^#([0-9a-f]{3})$|^#([0-9a-f]{6})$/gi;
+      const fillMatch = fill.match(hexColorRegExp);
+      if(fillMatch && fillMatch.length === 1) {
+        output += PathColorFromFill(fillMatch[0]);
+      }
+    }
+
     switch (svgElement.type) {
       // g ---------------------------------------------------------------------
       case 'g':
@@ -234,7 +257,7 @@ fs.readFile(svgFilePath, 'utf8', (err, data) => {
     if (err) {
       return console.log(err);
     }
-    
+
     console.log("saved .icon file to: " + iconFilePath);
-  }); 
+  });
 });
